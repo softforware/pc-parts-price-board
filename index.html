@@ -41,15 +41,6 @@ header p{max-width:68ch;margin:0;color:var(--muted)}
 .toggle{display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer;user-select:none}
 .toggle input{accent-color:var(--accent);width:16px;height:16px}
 .stamp{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
-.btn{font:600 13px var(--body);border:1px solid var(--accent);background:var(--accent);color:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer}
-.btn.ghost{background:transparent;color:var(--accent)}
-.btn:disabled{opacity:.5;cursor:default}
-.refresh{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.refresh .top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
-.refresh .msg{font-size:13.5px;min-width:0}
-.refresh .log{font:400 12px var(--mono);color:var(--muted);max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:2px}
-.refresh .log .bad{color:var(--warn)}
-.refresh .log .ok{color:var(--deal)}
 .live{color:var(--deal);font:500 11px var(--mono)}
 
 section{display:flex;flex-direction:column;gap:18px}
@@ -168,14 +159,7 @@ footer p{margin:0;max-width:80ch}
     <div class="chips" id="catChips"></div>
     <label class="toggle"><input type="checkbox" id="optUsed"> Include used / refurb</label>
     <label class="toggle"><input type="checkbox" id="optAli"> Include Alibaba</label>
-    <button class="btn" id="refreshBtn" hidden>Refresh live prices</button>
     <span class="stamp" id="stamp">Prices as of Oct 5, 2026</span>
-  </div>
-
-  <div class="refresh" id="refreshPanel" hidden aria-live="polite">
-    <div class="top"><span class="msg" id="refreshMsg"></span><button class="btn ghost" id="stopBtn">Stop</button></div>
-    <div class="meter"><i id="refreshBar" style="width:0%"></i></div>
-    <div class="log" id="refreshLog"></div>
   </div>
 
   <section id="top">
@@ -216,7 +200,7 @@ footer p{margin:0;max-width:80ch}
   </section>
 
   <footer>
-    <p><b>Refreshing prices.</b> The page owner can click “Refresh live prices” when this page is open in a Cowork session in the Claude desktop app. Claude's browser opens each linked product page (the app asks before each site), and Claude reads the price, shipping, stock and delivery time using the owner's own Claude usage. The new prices are saved for everyone. Prices marked “Checked live” came from that refresh; Alibaba and search-only links are never refreshed.</p>
+    <p><b>How prices update.</b> Every morning a scheduled job pulls current prices from the eBay Browse API and the Best Buy Products API and republishes this page. Listings marked “Updated” came from that job. Amazon, Newegg, Micro Center and Alibaba don't offer free price APIs, so their prices are estimates from Oct 5, 2026. Use the product links to check those stores' current prices.</p>
     <p><b>About these prices.</b> Starting figures are typical prices compiled on Oct 5, 2026 from public price trackers and store search results. RAM prices rose sharply in 2026 and move weekly, so treat these as a guide and confirm on the store page before you buy. "View on" links go straight to the product page (eBay links go to its catalog page, which lists every seller of that exact part). A "Search" link is used where no product page could be confirmed, and for Alibaba, whose listings change daily. GPU links go to the MSI Ventus version of each card.</p>
     <p>Performance index: GPUs use average 1080p raster results (RTX 4060 = 100); CPUs use average gaming results (5700X = 100); RAM uses true latency (10 ns = 100). Images are illustrations, not product photos.</p>
   </footer>
@@ -626,12 +610,11 @@ function renderSellers(){
     <div class="listings">${groups}</div>`;
 }
 
-/* ---------- live refresh (desktop app browser + Claude, owner only) ---------- */
-let CHECKED = {};   // {pid:{sid:{at, ok}}}
+/* ---------- saved prices (refreshed daily by the GitHub Action) ---------- */
+let CHECKED = {};   // {pid:{sid:{at, ok}}}: listings updated from a store API
 let UPDATED = "2026-10-05T12:00:00Z";
-const BROWSER = "host:claude_browser";
 const fmtDate = iso => new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
-function liveNote(pid,sid){const c=CHECKED[pid]?.[sid]; return c?.ok?`<span class="live">Checked live ${fmtDate(c.at)}</span>`:""}
+function liveNote(pid,sid){const c=CHECKED[pid]?.[sid]; return c?.ok?`<span class="live">Updated ${fmtDate(c.at)}</span>`:""}
 function setStamp(){
   // Name only the stores that were actually refreshed; everything else stays labeled as an older estimate
   const live=new Set(); Object.values(CHECKED).forEach(m=>Object.entries(m).forEach(([sid,c])=>{ if(c?.ok) live.add(sid) }));
@@ -647,101 +630,6 @@ function applyData(d){
   CHECKED=d.checked||{}; UPDATED=d.updatedAt||UPDATED;
 }
 fetch("prices.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{ if(d){applyData(d); setStamp(); renderAll();} }).catch(()=>{});
-
-let mcp=null, sample=null, artifactNs=null, abortCtl=null;
-const log=(t,cls="")=>{const el=document.createElement("span"); if(cls) el.className=cls; el.textContent=t; $("#refreshLog").prepend(el)};
-const textOf = r => { const pl=r?.payload; if(typeof pl==="string") return pl; const blocks=(r?.content||[]).filter(b=>b.type==="text").map(b=>b.text); return blocks.length?blocks.join("\n"):JSON.stringify(pl??""); };
-const browserErr = e => ({server_not_connected:"Claude's browser isn't available here. Open this page in a Cowork session in the Claude desktop app.",
-  not_in_manifest:"Browser access was declined for this page.", cancelled:"Skipped: the site visit was declined.",
-  needs_reauth:"Reconnect the browser in the Claude desktop app."})[e?.code] || (e?.message||"Browser error");
-
-async function readPage(url, signal){
-  await mcp.callTool(BROWSER,"navigate",{url},{cache:false,signal});
-  const r = await mcp.callTool(BROWSER,"get_page_text",{},{cache:false,signal});
-  return textOf(r).replace(/\s+/g," ").slice(0,9000);
-}
-
-async function extract(p, pages, signal){
-  const body = pages.map(x=>`### STORE: ${x.sid}\n${x.text}`).join("\n\n");
-  const prompt = `You are reading product pages from US stores for exactly this product: "${p.model||p.name}".
-For each STORE section below, find the current price of THAT product (ignore ads, bundles, other sizes or models).
-Reply with only JSON shaped like {"newegg":{"price":219.99,"shipping":0,"condition":"New","inStock":true,"eta":"Arrives Oct 9–11"}}.
-Rules: price and shipping are numbers in USD (shipping 0 if free or pickup; null if not shown). condition is one of New, Used, Refurb, Open-box, Renewed.
-For eBay, use the lowest Buy It Now listing and its shipping and condition. inStock false (price null) if the page says out of stock, sold out or unavailable.
-eta is the delivery or pickup estimate shown on the page, or null. Include every store key below.
-
-${body}`;
-  return sample.json(prompt,{modelTier:"quick",signal,cache:false});
-}
-
-async function runRefresh(){
-  const cats=new Set(visibleCats().map(c=>c.id));
-  const jobs=PRODUCTS.filter(p=>cats.has(p.cat)).map(p=>({p,stores:SELLERS.filter(s=>LINKS[p.id]?.[s.id]&&PRICES[p.id][s.id]!==undefined).map(s=>s.id)})).filter(j=>j.stores.length);
-  const totalPages=jobs.reduce((a,j)=>a+j.stores.length,0);
-  abortCtl=new AbortController(); const signal=abortCtl.signal;
-  $("#refreshPanel").hidden=false; $("#refreshLog").innerHTML=""; $("#refreshBtn").disabled=true; $("#stopBtn").hidden=false;
-  let done=0, updated=0, fatal=null;
-  const now=new Date().toISOString();
-  for(const j of jobs){
-    if(signal.aborted||fatal) break;
-    const pages=[];
-    for(const sid of j.stores){
-      if(signal.aborted||fatal) break;
-      $("#refreshMsg").textContent=`Reading ${sellerById(sid).name}: ${j.p.name} (${done+1} of ${totalPages})`;
-      try{ pages.push({sid,text:await readPage(LINKS[j.p.id][sid],signal)}); }
-      catch(e){ if(e?.code==="cancelled"&&signal.aborted) break;
-        log(`${j.p.name} @ ${sellerById(sid).name}: ${browserErr(e)}`,"bad");
-        if(["server_not_connected","not_in_manifest","needs_reauth","not_granted","capability_disabled"].includes(e?.code)) fatal=browserErr(e); }
-      done++; $("#refreshBar").style.width=(done/totalPages*100).toFixed(0)+"%";
-    }
-    if(!pages.length||signal.aborted||fatal) continue;
-    $("#refreshMsg").textContent=`Asking Claude to read prices for ${j.p.name}…`;
-    try{
-      const out=await extract(j.p,pages,signal);
-      for(const {sid} of pages){
-        const r=out?.[sid]; if(!r) { log(`${j.p.name} @ ${sellerById(sid).name}: no price found, kept the old one`,"bad"); continue; }
-        const old=PRICES[j.p.id][sid]||[null,0,"New"];
-        const price = (r.inStock===false||r.price==null) ? null : Number(r.price);
-        if(price!=null && !(price>0)) { log(`${j.p.name} @ ${sellerById(sid).name}: unreadable price, kept the old one`,"bad"); continue; }
-        const ship = r.shipping==null ? (old[1]||0) : Number(r.shipping)||0;
-        const cond = ["New","Used","Refurb","Open-box","Renewed"].includes(r.condition) ? r.condition : (old[2]||"New");
-        PRICES[j.p.id][sid]=[price,ship,cond,r.eta?String(r.eta).slice(0,60):null];
-        (CHECKED[j.p.id] ||= {})[sid]={at:now,ok:true}; updated++;
-        log(`${j.p.name} @ ${sellerById(sid).name}: ${price==null?"out of stock":money(price)+" + "+money(ship)+" ship"}`,"ok");
-      }
-      renderAll();
-    }catch(e){
-      if(e?.code==="cancelled") break;
-      const m={not_granted:"Claude access was declined, so prices can't be read.",rate_limited:"You've hit your Claude usage limit. Try again later.",sampling_disabled:"Claude isn't available on this account.",invalid_json:"Claude's answer couldn't be read for this part."}[e?.code]||e?.message||"Claude error";
-      log(`${j.p.name}: ${m}`,"bad");
-      if(["not_granted","rate_limited","sampling_disabled","not_declared","capability_disabled"].includes(e?.code)) fatal=m;
-    }
-  }
-  $("#stopBtn").hidden=true; $("#refreshBtn").disabled=false;
-  if(!updated){ $("#refreshMsg").textContent = fatal || (signal.aborted?"Stopped. Nothing changed.":"No prices could be read. Nothing changed."); return; }
-  UPDATED=now; setStamp(); renderAll();
-  $("#refreshMsg").textContent=`Updated ${updated} prices${signal.aborted?" before you stopped":""}${fatal?` (stopped early: ${fatal})`:""}. Saving…`;
-  await saveData();
-}
-
-async function saveData(){
-  if(!artifactNs){ $("#refreshMsg").textContent+=" Saving isn't available here, so the new prices show only on this screen."; return; }
-  const data={updatedAt:UPDATED,prices:PRICES,checked:CHECKED};
-  try{ await artifactNs.publish({"prices.json":{content:JSON.stringify(data),contentType:"application/json"}});
-    $("#refreshMsg").textContent=$("#refreshMsg").textContent.replace("Saving…","Saved for everyone who opens this page.");
-  }catch(e){
-    const m={not_writer:"You can view this page but not save to it, so the new prices show only on this screen.",not_granted:"Saving isn't allowed in this view, so the new prices show only on this screen.",capability_disabled:"Saving isn't available here, so the new prices show only on this screen.",conflict:"Someone saved a newer version first; the page is reloading to it.",rate_limited:"Saved too often. Wait a minute and refresh again."}[e?.code]||"Couldn't save the new prices. They still show on this screen.";
-    $("#refreshMsg").textContent=$("#refreshMsg").textContent.replace("Saving…",m);
-  }
-}
-
-(async()=>{
-  try{ [mcp,sample,artifactNs]=await Promise.all([claude.use("mcp"),claude.use("sample"),claude.use("artifact")]); }catch(e){ return; }
-  if(!mcp||!sample) return;                  // not in the desktop app, or Claude unavailable: page stays as-is
-  $("#refreshBtn").hidden=false;
-})();
-$("#refreshBtn").addEventListener("click",runRefresh);
-$("#stopBtn").addEventListener("click",()=>abortCtl?.abort());
 
 function renderAll(){ renderChips(); renderDeals(); renderCats(); renderMatrix(); renderSellers(); }
 

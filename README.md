@@ -13,7 +13,6 @@ A single-page web app that compares prices for PC parts across six retailers: eB
 - **Per-store tabs.** Listings, shipping, returns, warranty and a risk rating for each retailer.
 - **Filters.** Switch between part categories, include or hide used/refurbished parts, and include or hide Alibaba. Settings are remembered in the browser.
 - **Direct product links.** Each listing links to the exact product page at that store.
-- **Live price refresh (optional).** When the page is published as a Claude Artifact and opened in the Claude desktop app, a "Refresh live prices" button appears. It opens each product page in Claude's built-in browser, uses Claude to read the price, shipping, stock and delivery estimate, and saves the results to `prices.json`.
 
 ## Daily price refresh
 
@@ -48,14 +47,4 @@ python3 -m http.server 8000
 
 ## About the prices
 
-The starting prices are typical prices I collected on October 5, 2026 from public price trackers and store search results. Store prices change often, so use the product links to check the current price before buying. The live refresh only works inside the Claude desktop app. On GitHub Pages the page shows the saved prices.
-
-## Publish it as a Claude Artifact (with live refresh)
-
-1. Open this folder in Claude Code.
-2. Ask Claude:
-
-   > Publish index.html as a new Artifact, with prices.json alongside it at the path "prices.json". Declare these capabilities exactly:
-   > `{"mcp": {"servers": [{"server": "host:claude_browser", "tools": ["navigate", "get_page_text"]}]}, "sample": {}, "artifact": {}}`
-
-3. Open the link in a Cowork session of the Claude desktop app and click **Refresh live prices**. Only the artifact's owner can use the refresh, and it uses the owner's own Claude usage.
+The starting prices are typical prices I collected on October 5, 2026 from public price trackers and store search results. eBay and Best Buy prices are refreshed every morning (see above). The other stores are estimates, so use the product links to check their current prices.
