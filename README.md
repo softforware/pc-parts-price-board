@@ -2,7 +2,7 @@
 
 A single-page web app that compares prices for PC parts across six retailers: eBay, Newegg, Alibaba, Micro Center, Amazon and Best Buy. I built it to plan my own PC build. It compares 32GB DDR4 and DDR5 memory kits, NVIDIA RTX 3070 / 4060 / 4060 Ti graphics cards, and AMD Ryzen 7 5700X / 5 7600 / 7 7700 processors.
 
-**Live demo:** _add your GitHub Pages link here_
+**Live demo:** https://softforware.github.io/pc-parts-price-board/
 
 ## What it does
 
