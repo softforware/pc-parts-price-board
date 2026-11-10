@@ -15,6 +15,21 @@ A single-page web app that compares prices for PC parts across six retailers: eB
 - **Direct product links.** Each listing links to the exact product page at that store.
 - **Live price refresh (optional).** When the page is published as a Claude Artifact and opened in the Claude desktop app, a "Refresh live prices" button appears. It opens each product page in Claude's built-in browser, uses Claude to read the price, shipping, stock and delivery estimate, and saves the results to `prices.json`.
 
+## Daily price refresh
+
+A GitHub Action ([`.github/workflows/refresh-prices.yml`](.github/workflows/refresh-prices.yml)) runs [`scripts/refresh-prices.mjs`](scripts/refresh-prices.mjs) every morning. It pulls current prices from the **eBay Browse API** and the **Best Buy Products API**, then commits the new `prices.json`, and GitHub Pages republishes the site. The page header names which stores were refreshed and when. Amazon, Newegg, Micro Center and Alibaba have no free price API, so their prices stay labeled as estimates from October 5, 2026.
+
+For eBay, the script filters out listings that aren't a working, complete part ("box only", "for parts", the wrong model and so on) and ignores prices far outside the expected range. It then takes the cheapest remaining listing, or the second cheapest when there are several, because the very cheapest is often a scam.
+
+To turn it on in your own copy, add these repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Where to get it |
+|---|---|
+| `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | [developer.ebay.com](https://developer.ebay.com): create an application and copy its **Production** keyset |
+| `BESTBUY_API_KEY` | [developer.bestbuy.com](https://developer.bestbuy.com) |
+
+A store without a key is skipped and keeps its saved prices. To run a refresh right away, go to the Actions tab, choose "Refresh prices", then "Run workflow".
+
 ## How it's built
 
 - Plain HTML, CSS and JavaScript in one file (`index.html`). No framework and no build step.

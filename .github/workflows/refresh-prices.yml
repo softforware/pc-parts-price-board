@@ -1,0 +1,31 @@
+name: Refresh prices
+
+on:
+  schedule:
+    - cron: "0 10 * * *"   # every day at 10:00 UTC (early morning in the US)
+  workflow_dispatch:        # "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch latest prices
+        run: node scripts/refresh-prices.mjs
+        env:
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
+      - name: Save prices.json
+        run: |
+          if git diff --quiet prices.json; then echo "No changes"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Refresh prices $(date -u +%Y-%m-%d)" prices.json
+          git push

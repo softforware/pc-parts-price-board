@@ -632,7 +632,14 @@ let UPDATED = "2026-10-05T12:00:00Z";
 const BROWSER = "host:claude_browser";
 const fmtDate = iso => new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
 function liveNote(pid,sid){const c=CHECKED[pid]?.[sid]; return c?.ok?`<span class="live">Checked live ${fmtDate(c.at)}</span>`:""}
-function setStamp(){ $("#stamp").textContent = Object.keys(CHECKED).length ? "Live prices updated "+fmtDate(UPDATED) : "Prices as of Oct 5, 2026"; }
+function setStamp(){
+  // Name only the stores that were actually refreshed; everything else stays labeled as an older estimate
+  const live=new Set(); Object.values(CHECKED).forEach(m=>Object.entries(m).forEach(([sid,c])=>{ if(c?.ok) live.add(sid) }));
+  const names=SELLERS.filter(s=>live.has(s.id)).map(s=>s.name);
+  $("#stamp").textContent = names.length
+    ? `${names.join(" + ")} prices updated ${fmtDate(UPDATED)} · other stores are estimates from Oct 5, 2026`
+    : "Prices as of Oct 5, 2026";
+}
 
 function applyData(d){
   if(!d||!d.prices) return;
