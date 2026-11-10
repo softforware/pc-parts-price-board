@@ -1,0 +1,754 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style><title>Build Parts Price Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head><body>
+<style>
+/* Layout: control bar → top deals → per-category spec cards → price matrix → per-seller tabs. Shelf-tag price labels. */
+:root{
+  --bg:#F2F4F8; --surface:#FFFFFF; --tile:#E7EBF2; --ink:#131926; --muted:#5A6479; --line:#D9DFE9;
+  --accent:#2A52D6; --accent-soft:#E3E9FB; --deal:#0F7D55; --deal-soft:#DDF2E8; --warn:#A86200; --warn-soft:#FBEBD3;
+  --display:"Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E121A; --surface:#161B26; --tile:#1D2432; --ink:#E6EAF2; --muted:#97A1B5; --line:#2A3243;
+  --accent:#7D9CFF; --accent-soft:#1E2847; --deal:#43C98F; --deal-soft:#15302A; --warn:#F0A63A; --warn-soft:#352816; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E121A; --surface:#161B26; --tile:#1D2432; --ink:#E6EAF2; --muted:#97A1B5; --line:#2A3243;
+  --accent:#7D9CFF; --accent-soft:#1E2847; --deal:#43C98F; --deal-soft:#15302A; --warn:#F0A63A; --warn-soft:#352816; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:0 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,4.4vw,42px);font-weight:700;letter-spacing:.01em}
+h2{font-size:24px;font-weight:600}
+h3{font-size:17px;font-weight:600}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+
+/* header */
+header{padding-top:36px;display:flex;flex-direction:column;gap:12px}
+header p{max-width:68ch;margin:0;color:var(--muted)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-block:12px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 13px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.toggle{display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+.stamp{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.btn{font:600 13px var(--body);border:1px solid var(--accent);background:var(--accent);color:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.refresh{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.refresh .top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.refresh .msg{font-size:13.5px;min-width:0}
+.refresh .log{font:400 12px var(--mono);color:var(--muted);max-height:150px;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.refresh .log .bad{color:var(--warn)}
+.refresh .log .ok{color:var(--deal)}
+.live{color:var(--deal);font:500 11px var(--mono)}
+
+section{display:flex;flex-direction:column;gap:18px}
+.sec-head{display:flex;flex-direction:column;gap:6px}
+.sec-head p{margin:0;color:var(--muted);max-width:70ch}
+
+/* shelf tag price */
+.tag{display:inline-flex;align-items:baseline;gap:6px;font-family:var(--display);font-weight:700;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.tag small{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--muted)}
+.pill{display:inline-block;font:500 11px var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:var(--tile);color:var(--muted);white-space:nowrap}
+.pill.deal{background:var(--deal-soft);color:var(--deal)}
+.pill.acc{background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+
+/* top deals */
+.deals{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.deal{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.deal .rank{font:600 12px var(--mono);color:var(--muted)}
+.deal .nm{font-weight:600;font-size:14px;line-height:1.3}
+.deal .save{color:var(--deal);font:500 13px var(--mono)}
+.deal .dimg{background:var(--tile);border-radius:8px;aspect-ratio:16/7;max-width:100%;display:grid;place-items:center}
+.deal .dimg svg{width:80%;height:86%}
+.shipbox{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.shipbox .row{display:flex;justify-content:space-between;gap:10px}
+.shipbox .row.tot{border-top:1px solid var(--line);padding-top:6px;font-weight:600}
+.shipbox dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:4px 0 0}
+.shipbox dt{color:var(--muted)}
+.shipbox dd{margin:0;min-width:0}
+
+/* platform combos */
+.combos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.combo{border:1px dashed var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.combo .row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.combo .row span:first-child{min-width:0}
+.combo .tot{border-top:1px solid var(--line);padding-top:8px;margin-top:2px;font-weight:600}
+
+/* product cards */
+.cat{display:flex;flex-direction:column;gap:12px}
+.cat-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.card.win{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.img{background:var(--tile);aspect-ratio:16/9;max-width:100%;display:grid;place-items:center;position:relative}
+.img svg{width:82%;height:82%}
+.badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}
+.cbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;flex:1}
+.cbody .info{font-size:13.5px;color:var(--muted);margin:0}
+.specs{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px;margin:0}
+.specs dt{color:var(--muted)}
+.specs dd{margin:0;font-family:var(--mono);font-size:12.5px;text-align:right;min-width:0}
+.best-line{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:auto}
+.best-line .where{font-size:12.5px;color:var(--muted);text-align:right}
+.score{font:500 12px var(--mono);color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:var(--tile);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
+
+/* range strip */
+.strip{position:relative;height:30px;margin:2px 8px 0}
+.strip .track{position:absolute;left:0;right:0;top:9px;height:2px;background:var(--line)}
+.strip .dot{position:absolute;top:3px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--muted);font:600 0px var(--mono)}
+.strip .dot.lo{border-color:var(--deal);background:var(--deal)}
+.strip .lbl{position:absolute;top:19px;transform:translateX(-50%);font:500 9.5px var(--mono);color:var(--muted);white-space:nowrap}
+.strip-cap{display:flex;justify-content:space-between;font:400 11px var(--mono);color:var(--muted)}
+
+/* matrix */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:220px}
+thead th{font:500 11.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;background:var(--surface)}
+thead th button{all:unset;cursor:pointer;color:var(--accent)}
+tbody tr.grp td{background:var(--tile);font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left}
+td .c{display:block;font:400 10.5px var(--mono);color:var(--muted)}
+td.lo{background:var(--deal-soft)}
+td .p{color:var(--ink);text-decoration:none}td .p:hover{text-decoration:underline}
+td.lo .p{color:var(--deal);font-weight:600}
+td.na{color:var(--line)}
+
+/* sellers */
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line)}
+.tab{all:unset;cursor:pointer;padding:10px 14px;font:600 14px var(--display);letter-spacing:.02em;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:focus-visible{outline:2px solid var(--accent)}
+.seller-top{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:760px){.seller-top{grid-template-columns:1fr}}
+.seller-top p{margin:0;max-width:65ch}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0}
+.listings{display:flex;flex-direction:column;gap:8px}
+.lst{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.lst .thumb{width:56px;height:40px;background:var(--tile);border-radius:6px;display:grid;place-items:center}
+.lst .thumb svg{width:90%;height:90%}
+.lst .meta{display:flex;flex-direction:column;gap:3px;min-width:0}
+.lst .meta .nm{font-weight:600;font-size:14px;line-height:1.3}
+.lst .meta .sub{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
+.lst .pr{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.lst .pr .tag{font-size:21px}
+.lst .pr a{font-size:12.5px}
+.lst-grp{font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+@media (max-width:480px){.lst{grid-template-columns:minmax(0,1fr) auto}.lst .thumb{display:none}}
+
+footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:6px}
+footer p{margin:0;max-width:80ch}
+@media (prefers-reduced-motion:no-preference){.card,.deal{transition:transform .15s}.card:hover,.deal:hover{transform:translateY(-2px)}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Price check · 32GB RAM · GPU · CPU · 6 stores</span>
+    <h1>Build Parts Price Board</h1>
+    <p>Compares 32GB DDR4 and DDR5 kits, RTX 3070 / 4060 / 4060 Ti cards, and Ryzen 7 5700X / 5 7600 / 7 7700 chips across eBay, Newegg, Alibaba, Micro Center, Amazon and Best Buy. Prices are the landed cost (item plus shipping) in USD.</p>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Filters">
+    <div class="chips" id="catChips"></div>
+    <label class="toggle"><input type="checkbox" id="optUsed"> Include used / refurb</label>
+    <label class="toggle"><input type="checkbox" id="optAli"> Include Alibaba</label>
+    <button class="btn" id="refreshBtn" hidden>Refresh live prices</button>
+    <span class="stamp" id="stamp">Prices as of Oct 5, 2026</span>
+  </div>
+
+  <div class="refresh" id="refreshPanel" hidden aria-live="polite">
+    <div class="top"><span class="msg" id="refreshMsg"></span><button class="btn ghost" id="stopBtn">Stop</button></div>
+    <div class="meter"><i id="refreshBar" style="width:0%"></i></div>
+    <div class="log" id="refreshLog"></div>
+  </div>
+
+  <section id="top">
+    <div class="sec-head">
+      <span class="eyebrow">Top comparisons</span>
+      <h2>Most economical right now</h2>
+      <p>Ranked by the biggest discount on the <b>delivered price</b> (item + shipping) against the average new retail price. Delivery time is shown but does not affect the ranking. Below them is what each platform costs to get running.</p>
+    </div>
+    <div class="deals" id="deals"></div>
+    <div class="combos" id="combos"></div>
+  </section>
+
+  <section id="compare">
+    <div class="sec-head">
+      <span class="eyebrow">Head to head</span>
+      <h2>Specs, performance and best price</h2>
+      <p>Each card shows the lowest price found and where every store lands on the same scale. <b>Best value</b> is performance per dollar; <b>Cheapest</b> is the lowest landed price.</p>
+    </div>
+    <div id="cats" style="display:flex;flex-direction:column;gap:36px"></div>
+  </section>
+
+  <section id="matrix">
+    <div class="sec-head">
+      <span class="eyebrow">Price matrix</span>
+      <h2>Every part at every store</h2>
+      <p>Big number is the price with shipping; the line under it is item price + shipping. The lowest delivered price in each row is highlighted. Click a price to open that product, or a store name to see its listings.</p>
+    </div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+
+  <section id="sellers">
+    <div class="sec-head">
+      <span class="eyebrow">By store</span>
+      <h2>Listings from each seller</h2>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="sellerPanel" role="tabpanel" style="display:flex;flex-direction:column;gap:16px"></div>
+  </section>
+
+  <footer>
+    <p><b>Refreshing prices.</b> The page owner can click “Refresh live prices” when this page is open in a Cowork session in the Claude desktop app. Claude's browser opens each linked product page (the app asks before each site), and Claude reads the price, shipping, stock and delivery time using the owner's own Claude usage. The new prices are saved for everyone. Prices marked “Checked live” came from that refresh; Alibaba and search-only links are never refreshed.</p>
+    <p><b>About these prices.</b> Starting figures are typical prices compiled on Oct 5, 2026 from public price trackers and store search results. RAM prices rose sharply in 2026 and move weekly, so treat these as a guide and confirm on the store page before you buy. "View on" links go straight to the product page (eBay links go to its catalog page, which lists every seller of that exact part). A "Search" link is used where no product page could be confirmed, and for Alibaba, whose listings change daily. GPU links go to the MSI Ventus version of each card.</p>
+    <p>Performance index: GPUs use average 1080p raster results (RTX 4060 = 100); CPUs use average gaming results (5700X = 100); RAM uses true latency (10 ns = 100). Images are illustrations, not product photos.</p>
+  </footer>
+</div>
+
+<script>
+const SELLERS = [
+  {id:"ebay", name:"eBay", short:"eB", url:q=>`https://www.ebay.com/sch/i.html?_nkw=${q}`,
+   ship:{eta:"3–7 business days", method:"Shipped by the individual seller (USPS / UPS), tracking required", free:"Most listings ship free; check the listing", returns:"30 days on most listings, covered by eBay Money Back Guarantee"},
+   blurb:"Mostly used, open-box and seller-refurbished parts. The cheapest place for GPUs that are no longer made new, like the RTX 3070. Check seller feedback (99%+ and 500+ ratings is a good bar) and ask for a photo of the card running before buying used GPUs.",
+   facts:{Condition:"Mostly used / open-box", Shipping:"Often free; $5–15 otherwise", Returns:"eBay Money Back Guarantee", Warranty:"Usually none on used", Risk:"Medium"}},
+  {id:"newegg", name:"Newegg", short:"NE", url:q=>`https://www.newegg.com/p/pl?d=${q}`,
+   ship:{eta:"2–5 business days", method:"Ships from a Newegg warehouse (UPS / FedEx)", free:"Free standard shipping on parts sold by Newegg", returns:"30 days; some RAM and CPUs are replacement-only"},
+   blurb:"Large new-parts catalog with frequent combo discounts (CPU + RAM or CPU + motherboard). Filter to “Sold by Newegg” to avoid third-party marketplace sellers with weaker return policies.",
+   facts:{Condition:"New", Shipping:"Free on most parts", Returns:"30 days (some parts replacement-only)", Warranty:"Full manufacturer", Risk:"Low"}},
+  {id:"alibaba", name:"Alibaba", short:"AB", url:q=>`https://www.alibaba.com/trade/search?SearchText=${q}`,
+   ship:{eta:"14–28 days", method:"International air shipping from China; import duties may apply", free:"No free shipping; $18–30 per order", returns:"Disputes only through Trade Assurance"},
+   blurb:"Wholesale marketplace. CPUs are often “tray” (no box, no cooler) and GPUs are often used or ex-mining. Some listings need a minimum order quantity. Shipping to the US takes 2–4 weeks and counterfeit or relabeled parts do show up, so use Trade Assurance and pick verified suppliers.",
+   facts:{Condition:"Tray / OEM / used", Shipping:"$18–30, 2–4 weeks", Returns:"Through Trade Assurance only", Warranty:"US warranty usually not honored", Risk:"High"}},
+  {id:"micro", name:"Micro Center", short:"MC", url:q=>`https://www.microcenter.com/search/search_results.aspx?Ntt=${q}`,
+   ship:{eta:"Same day (in-store pickup)", method:"Reserve online, pick up at a store; CPUs are pickup only", free:"Pickup is free; RAM and GPUs can ship in 2–5 days", returns:"30 days (15 days on some electronics)"},
+   blurb:"In-store pickup only for CPUs. Its CPU + motherboard + RAM bundles are often the cheapest way to start an AM5 build, and open-box GPUs come with a store warranty. Worth the drive if a store is nearby.",
+   facts:{Condition:"New and open-box", Shipping:"In-store pickup (CPUs pickup only)", Returns:"30 days (15 on some electronics)", Warranty:"Full manufacturer", Risk:"Low"}},
+  {id:"amazon", name:"Amazon", short:"AZ", url:q=>`https://www.amazon.com/s?k=${q}`,
+   ship:{eta:"1–2 days with Prime; 4–6 days standard", method:"Fulfilled by Amazon (check “Ships from” for third-party sellers)", free:"Free with Prime or on orders over $35", returns:"30 days, free return shipping on most items"},
+   blurb:"Fast shipping and easy returns. Check “Ships from / Sold by” on each listing: third-party sellers sometimes ship opened or used items as new. “Renewed” listings carry a 90-day guarantee.",
+   facts:{Condition:"New and Renewed", Shipping:"Free with Prime", Returns:"30 days", Warranty:"Full manufacturer (new)", Risk:"Low"}},
+  {id:"bestbuy", name:"Best Buy", short:"BB", url:q=>`https://www.bestbuy.com/site/searchpage.jsp?st=${q}`,
+   ship:{eta:"2–5 days, or pickup in about an hour", method:"Ships from Best Buy or pick up at a local store", free:"Free shipping over $35; pickup always free", returns:"15 days (60 days for My Best Buy Total members)"},
+   blurb:"Usually the highest sticker price here, but it price-matches major retailers and has easy in-store returns. Carries fewer RAM kits than the others.",
+   facts:{Condition:"New and open-box", Shipping:"Free over $35 or store pickup", Returns:"15 days (60 for members)", Warranty:"Full manufacturer", Risk:"Low"}},
+];
+
+const CATS = [
+  {id:"ddr4", name:"32GB DDR4", sub:"For the Ryzen 7 5700X (AM4)"},
+  {id:"ddr5", name:"32GB DDR5", sub:"For the Ryzen 5 7600 / 7 7700 (AM5)"},
+  {id:"gpu",  name:"Graphics cards", sub:"RTX 3070 vs 4060 vs 4060 Ti"},
+  {id:"cpu",  name:"Processors", sub:"Ryzen 7 5700X vs 5 7600 vs 7 7700"},
+];
+
+// perf: see footer for the index basis
+const PRODUCTS = [
+  {id:"lpx", cat:"ddr4", name:"Corsair Vengeance LPX 32GB DDR4-3200 CL16", q:"Corsair Vengeance LPX 32GB DDR4 3200 CL16", color:"#1d1f24", perf:100,
+   info:"Low-profile heatspreader clears large air coolers. The safe default for a 5700X build.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR4-3200", Timings:"16-18-18-36", "True latency":"10.0 ns", Voltage:"1.35 V", Profile:"Intel XMP 2.0", Height:"34 mm"}},
+  {id:"rjv", cat:"ddr4", name:"G.Skill Ripjaws V 32GB DDR4-3600 CL18", q:"G.Skill Ripjaws V 32GB DDR4 3600 CL18", color:"#b3262d", perf:100,
+   info:"3600 MT/s lines up with Ryzen 5000's 1800 MHz fabric clock, the sweet spot for the 5700X.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR4-3600", Timings:"18-22-22-42", "True latency":"10.0 ns", Voltage:"1.35 V", Profile:"Intel XMP 2.0", Height:"42 mm"}},
+  {id:"vlz", cat:"ddr4", name:"TeamGroup T-Force Vulcan Z 32GB DDR4-3200 CL16", q:"TeamGroup T-Force Vulcan Z 32GB DDR4 3200 CL16", color:"#6b7280", perf:100,
+   info:"Same speed and timings as the Corsair kit, usually a few dollars cheaper.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR4-3200", Timings:"16-18-18-38", "True latency":"10.0 ns", Voltage:"1.35 V", Profile:"Intel XMP 2.0", Height:"32 mm"}},
+
+  {id:"cv5", cat:"ddr5", name:"Corsair Vengeance 32GB DDR5-6000 CL30", q:"Corsair Vengeance 32GB DDR5 6000 CL30", color:"#1d1f24", perf:100,
+   info:"6000 CL30 is the recommended speed for Ryzen 7000. Has both AMD EXPO and Intel XMP profiles.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR5-6000", Timings:"30-36-36-76", "True latency":"10.0 ns", Voltage:"1.40 V", Profile:"AMD EXPO + XMP 3.0", Height:"35 mm"}},
+  {id:"fx5", cat:"ddr5", name:"G.Skill Flare X5 32GB DDR5-6000 CL30", q:"G.Skill Flare X5 32GB DDR5 6000 CL30", color:"#3a3f48", perf:100,
+   info:"Built and tuned for AMD AM5. The 33 mm low-profile design fits under any cooler.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR5-6000", Timings:"30-36-36-96", "True latency":"10.0 ns", Voltage:"1.35 V", Profile:"AMD EXPO", Height:"33 mm"}},
+  {id:"kfb", cat:"ddr5", name:"Kingston Fury Beast 32GB DDR5-5600 CL36", q:"Kingston Fury Beast 32GB DDR5 5600 CL36", color:"#111214", perf:78,
+   info:"Slower kit that is usually the cheapest DDR5 on shelves. Costs about 2–4% in CPU-bound games versus 6000 CL30.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR5-5600", Timings:"36-38-38-80", "True latency":"12.9 ns", Voltage:"1.25 V", Profile:"AMD EXPO + XMP 3.0", Height:"35 mm"}},
+  {id:"pvv", cat:"ddr5", name:"Patriot Viper Venom 32GB DDR5-6000 CL30", q:"Patriot Viper Venom 32GB DDR5 6000 CL30", color:"#8a1c22", perf:100,
+   info:"Same 6000 CL30 spec as the Corsair and G.Skill kits, often priced lowest of the three new.",
+   specs:{Kit:"2 × 16GB", Speed:"DDR5-6000", Timings:"30-40-40-76", "True latency":"10.0 ns", Voltage:"1.35 V", Profile:"AMD EXPO + XMP 3.0", Height:"44 mm"}},
+
+  {id:"3070", cat:"gpu", model:"MSI RTX 3070 Ventus 2X 8G OC LHR", name:"GeForce RTX 3070 8GB", q:"RTX 3070 8GB", color:"#2b2f36", fans:2, perf:116,
+   info:"Faster raster than the 4060 thanks to its 256-bit bus, but draws nearly twice the power and has no DLSS Frame Generation. Mostly sold used now.",
+   specs:{Architecture:"Ampere (2020)", "CUDA cores":"5,888", Memory:"8GB GDDR6, 256-bit", Bandwidth:"448 GB/s", Power:"220 W", "PSU (rec.)":"650 W", "DLSS":"DLSS 2 (no Frame Gen)"}},
+  {id:"4060", cat:"gpu", model:"MSI RTX 4060 Ventus 2X Black 8G OC", name:"GeForce RTX 4060 8GB", q:"RTX 4060 8GB", color:"#32363e", fans:2, perf:100,
+   info:"The efficiency pick: 115 W, one 8-pin connector, and DLSS 3 Frame Generation. Fine for 1080p high settings.",
+   specs:{Architecture:"Ada Lovelace (2023)", "CUDA cores":"3,072", Memory:"8GB GDDR6, 128-bit", Bandwidth:"272 GB/s", Power:"115 W", "PSU (rec.)":"550 W", "DLSS":"DLSS 3 + Frame Gen"}},
+  {id:"4060ti8", cat:"gpu", model:"MSI RTX 4060 Ti Ventus 2X Black 8G OC", name:"GeForce RTX 4060 Ti 8GB", q:"RTX 4060 Ti 8GB", color:"#262a31", fans:2, perf:120,
+   info:"About 20% faster than the 4060 at 1080p. 8GB can run short in newer games at max textures.",
+   specs:{Architecture:"Ada Lovelace (2023)", "CUDA cores":"4,352", Memory:"8GB GDDR6, 128-bit", Bandwidth:"288 GB/s", Power:"160 W", "PSU (rec.)":"550 W", "DLSS":"DLSS 3 + Frame Gen"}},
+  {id:"4060ti16", cat:"gpu", model:"MSI RTX 4060 Ti Ventus 2X Black 16G OC", name:"GeForce RTX 4060 Ti 16GB", q:"RTX 4060 Ti 16GB", color:"#1f2228", fans:3, perf:122,
+   info:"Same chip as the 8GB Ti with double the VRAM. Helps in texture-heavy games, 1440p and local AI work.",
+   specs:{Architecture:"Ada Lovelace (2023)", "CUDA cores":"4,352", Memory:"16GB GDDR6, 128-bit", Bandwidth:"288 GB/s", Power:"165 W", "PSU (rec.)":"550 W", "DLSS":"DLSS 3 + Frame Gen"}},
+
+  {id:"5700x", cat:"cpu", name:"AMD Ryzen 7 5700X", q:"AMD Ryzen 7 5700X", socket:"AM4", perf:100,
+   info:"8 cores on the older AM4 platform. Pairs with cheaper DDR4 and B550 boards. No cooler in the box.",
+   specs:{Socket:"AM4", "Cores / threads":"8 / 16", Clock:"3.4 – 4.6 GHz", "L3 cache":"32 MB", TDP:"65 W", Memory:"DDR4 only", "Cooler / iGPU":"None / None"}},
+  {id:"7600", cat:"cpu", name:"AMD Ryzen 5 7600", q:"AMD Ryzen 5 7600", socket:"AM5", perf:118,
+   info:"6 cores, but faster in games than the 5700X. AM5 supports future CPU upgrades. Includes a Wraith Stealth cooler.",
+   specs:{Socket:"AM5", "Cores / threads":"6 / 12", Clock:"3.8 – 5.1 GHz", "L3 cache":"32 MB", TDP:"65 W", Memory:"DDR5 only", "Cooler / iGPU":"Wraith Stealth / Radeon 2 CU"}},
+  {id:"7700", cat:"cpu", name:"AMD Ryzen 7 7700", q:"AMD Ryzen 7 7700", socket:"AM5", perf:124,
+   info:"8 Zen 4 cores. Small gaming gain over the 7600 and about 30% more multi-thread for streaming and rendering.",
+   specs:{Socket:"AM5", "Cores / threads":"8 / 16", Clock:"3.8 – 5.3 GHz", "L3 cache":"32 MB", TDP:"65 W", Memory:"DDR5 only", "Cooler / iGPU":"Wraith Prism / Radeon 2 CU"}},
+];
+
+// [price, shipping, condition]; null = not carried
+const PRICES = {
+  lpx:{ebay:[159,6,"Used"],newegg:[219.99,0,"New"],alibaba:[148,22,"New (OEM)"],micro:[209.99,0,"New"],amazon:[214.99,0,"New"],bestbuy:[239.99,0,"New"]},
+  rjv:{ebay:[172,0,"Used"],newegg:[229.99,0,"New"],alibaba:[159,22,"New (OEM)"],micro:[224.99,0,"New"],amazon:[226.5,0,"New"],bestbuy:null},
+  vlz:{ebay:[158,6,"Used"],newegg:[199.99,0,"New"],alibaba:[139,22,"New (OEM)"],micro:null,amazon:[198,0,"New"],bestbuy:null},
+  cv5:{ebay:[315,0,"Used"],newegg:[409.99,0,"New"],alibaba:[289,25,"New (OEM)"],micro:[389.99,0,"New"],amazon:[419.99,0,"New"],bestbuy:[499.99,0,"New"]},
+  fx5:{ebay:[329,0,"Open-box"],newegg:[398,0,"New"],alibaba:[299,25,"New (OEM)"],micro:[399.99,0,"New"],amazon:[404.99,0,"New"],bestbuy:null},
+  kfb:{ebay:[291,8,"Used"],newegg:[379.99,0,"New"],alibaba:[268,25,"New (OEM)"],micro:[369.99,0,"New"],amazon:[384.99,0,"New"],bestbuy:[469.99,0,"New"]},
+  pvv:{ebay:[309,8,"Used"],newegg:[399.99,0,"New"],alibaba:null,micro:null,amazon:[399.99,0,"New"],bestbuy:null},
+  "3070":{ebay:[249,12,"Used"],newegg:[319.99,0,"Refurb"],alibaba:[229,30,"Used"],micro:[289.99,0,"Open-box"],amazon:[309,0,"Renewed"],bestbuy:null},
+  "4060":{ebay:[229,10,"Used"],newegg:[319.99,0,"New"],alibaba:[265,30,"New (OEM)"],micro:[309.99,0,"New"],amazon:[324.99,0,"New"],bestbuy:[339.99,0,"New"]},
+  "4060ti8":{ebay:[267,12,"Used"],newegg:[409.99,0,"New"],alibaba:[299,30,"Used"],micro:[399.99,0,"New"],amazon:[414.99,0,"New"],bestbuy:[429.99,0,"New"]},
+  "4060ti16":{ebay:[359,0,"Used"],newegg:[479.99,0,"New"],alibaba:[379,30,"New (OEM)"],micro:[469.99,0,"New"],amazon:[489,0,"New"],bestbuy:[499.99,0,"New"]},
+  "5700x":{ebay:[154,5,"Used"],newegg:[209,0,"New"],alibaba:[142,18,"New (tray)"],micro:[179.99,0,"New"],amazon:[208.98,0,"New"],bestbuy:[221.99,0,"New"]},
+  "7600":{ebay:[179,0,"Used"],newegg:[215.9,0,"New"],alibaba:[165,18,"New (tray)"],micro:[189.99,0,"New"],amazon:[208.99,0,"New"],bestbuy:[229.99,0,"New"]},
+  "7700":{ebay:[222,6,"Used"],newegg:[279.99,0,"New"],alibaba:[209,18,"New (tray)"],micro:[259.99,0,"New"],amazon:[274,0,"New"],bestbuy:[299.99,0,"New"]},
+};
+
+// Direct product pages; anything missing falls back to that store's search for the exact part
+const LINKS = {
+ "lpx": {
+  "newegg": "https://www.newegg.com/corsair-vengeance-lpx-32gb-ddr4-3200-cas-latency-cl16-desktop-memory-black/p/N82E16820236541",
+  "amazon": "https://www.amazon.com/dp/B07RW6Z692",
+  "bestbuy": "https://www.bestbuy.com/product/corsair-vengeance-lpx-32gb-2x16gb-ddr4-3200mhz-c16-udimm-desktop-memory-black/J39QHH5FH5",
+  "micro": "https://www.microcenter.com/product/616299/corsair-vengeance-lpx-32gb-(2-x-16gb)-ddr4-3200-pc4-25600-cl16-dual-channel-desktop-memory-kit-cmk32gx4m2e3200c16-black",
+  "ebay": "https://www.ebay.com/p/27032780795"
+ },
+ "rjv": {
+  "newegg": "https://www.newegg.com/g-skill-ripjaws-v-series-32gb-ddr4-3600-cas-latency-cl18-desktop-memory-black/p/N82E16820232928",
+  "amazon": "https://www.amazon.com/dp/B081374T3G",
+  "bestbuy": "https://www.bestbuy.com/product/g-skill-ripjaws-v-series-32gb-2-x-16gb-288-pin-pc-ram-ddr4-3600-pc4-28800-desktop-memory-model-f4-3600c18d-32gvk-black/J36V4SLCV2",
+  "micro": "https://www.microcenter.com/product/636569/gskill-ripjaws-v-32gb-(2-x-16gb)-ddr4-3600-pc4-28800-cl18-dual-channel-desktop-memory-kit-f4-3600c18d-32gvk-black",
+  "ebay": "https://www.ebay.com/p/20035915257"
+ },
+ "vlz": {
+  "newegg": "https://www.newegg.com/team-32gb-ddr4-3200/p/N82E16820331618",
+  "amazon": "https://www.amazon.com/dp/B08NVQZ9XQ",
+  "bestbuy": "https://www.bestbuy.com/product/team-group-team-t-force-vulcan-z-32gb-2-x-16gb-288-pin-pc-ram-ddr4-3200-pc4-25600-desktop-memory-model-tlzgd432g3200hc16fdc01-gray/J37P83Q4WX",
+  "micro": "https://www.microcenter.com/product/632929/teamgroup-t-force-vulcan-z-32gb-(2-x-16gb)-ddr4-3200-pc4-25600-cl16-dual-channel-desktop-memory-kit-tlzgd432g3200h-gray",
+  "ebay": "https://www.ebay.com/p/11044603291"
+ },
+ "cv5": {
+  "newegg": "https://www.newegg.com/corsair-vengeance-32gb-ddr5-6000-cas-latency-30-desktop-memory-black/p/N82E16820982007",
+  "amazon": "https://www.amazon.com/dp/B0C3RYHZJQ",
+  "bestbuy": "https://www.bestbuy.com/product/corsair-vengeance-32gb-2-x-16gb-288-pin-pc-ram-ddr5-6000-pc5-48000-desktop-memory-model-cmk32gx5m2b6000c30-black/J39QHTJVX7",
+  "micro": "https://www.microcenter.com/product/669660/corsair-vengeance-32gb-(2-x-16gb)-ddr5-6000-pc5-48000-cl30-dual-channel-desktop-memory-kit-cmk32gx5m2b6000c30-black",
+  "ebay": "https://www.ebay.com/p/21061238872"
+ },
+ "fx5": {
+  "newegg": "https://www.newegg.com/g-skill-flare-x5-32gb-ddr5-6000-cas-latency-cl30-desktop-memory-black/p/N82E16820374457",
+  "amazon": "https://www.amazon.com/dp/B0C1TKSDKR",
+  "ebay": "https://www.ebay.com/p/17057737451"
+ },
+ "kfb": {
+  "newegg": "https://www.newegg.com/kingston-technology-corp-fury-beast-32gb-ddr5-5600-cas-latency-cl36-memory-black/p/N82E16820242741",
+  "amazon": "https://www.amazon.com/dp/B0BD5PN65B",
+  "ebay": "https://www.ebay.com/p/24056806547"
+ },
+ "pvv": {
+  "newegg": "https://www.newegg.com/patriot-32gb-ddr5-6000/p/N82E16820225334",
+  "amazon": "https://www.amazon.com/dp/B0D4NLSP87",
+  "ebay": "https://www.ebay.com/p/2341442627"
+ },
+ "3070": {
+  "newegg": "https://www.newegg.com/msi-geforce-rtx-3070-rtx-3070-ventus-2x-8g-oc-lhr/p/N82E16814137671",
+  "amazon": "https://www.amazon.com/dp/B09HR4MNWW",
+  "micro": "https://www.microcenter.com/product/672728/msi-nvidia-geforce-rtx-3070-ventus-2x-lhr-overclocked-dual-fan-8gb-gddr6-pcie-40-graphics-card-(refurbished)",
+  "ebay": "https://www.ebay.com/p/25050509650"
+ },
+ "4060": {
+  "newegg": "https://www.newegg.com/msi-rtx-4060-ventus-2x-black-8g-oc-geforce-rtx-4060-8gb-graphics-card-double-fans/p/N82E16814137804",
+  "amazon": "https://www.amazon.com/dp/B0C7W8GZMJ",
+  "bestbuy": "https://www.bestbuy.com/site/msi-nvidia-geforce-rtx-4060-8gb-ventus-2x-oc-8gb-gddr6-pci-express-4-0-graphics-card-black/6548653.p?skuId=6548653",
+  "micro": "https://www.microcenter.com/product/668452/msi-nvidia-geforce-rtx-4060-ventus-2x-black-overclocked-dual-fan-8gb-gddr6-pcie-40-graphics-card",
+  "ebay": "https://www.ebay.com/p/26063442527"
+ },
+ "4060ti8": {
+  "newegg": "https://www.newegg.com/msi-rtx-4060-ti-ventus-2x-black-8g-oc-geforce-rtx-4060-ti-8gb-graphics-card-double-fans/p/N82E16814137799",
+  "amazon": "https://www.amazon.com/dp/B0C4F7KX1B",
+  "micro": "https://www.microcenter.com/product/670020/msi-nvidia-geforce-rtx-4060-ti-ventus-2x-black-overclocked-dual-fan-8gb-gddr6-pcie-40-graphics-card",
+  "ebay": "https://www.ebay.com/p/17062717420"
+ },
+ "4060ti16": {
+  "newegg": "https://www.newegg.com/msi-rtx-4060-ti-ventus-2x-black-16g-oc-geforce-rtx-4060-ti-16gb-graphics-card-double-fans/p/N82E16814137818",
+  "amazon": "https://www.amazon.com/dp/B0CBK7BRL9",
+  "bestbuy": "https://www.bestbuy.com/product/msi-nvidia-geforce-rtx-4060-ti-ventus-2x-16gb-ddr6x-pci-express-4-0-graphics-card-black/J3P7TXY8L2/sku/12556701",
+  "micro": "https://www.microcenter.com/product/669437/msi-nvidia-geforce-rtx-4060-ti-ventus-2x-black-overclocked-dual-fan-16gb-gddr6-pcie-40-graphics-card",
+  "ebay": "https://www.ebay.com/p/12063423459"
+ },
+ "5700x": {
+  "newegg": "https://www.newegg.com/amd-ryzen-7-5000-series-ryzen-7-5700x-vermeer-socket-am4-desktop-cpu-processor/p/N82E16819113735",
+  "amazon": "https://www.amazon.com/dp/B09VCHQHZ6",
+  "bestbuy": "https://www.bestbuy.com/site/amd-ryzen-7-5700x-w-o-fan-black/6510770.p?skuId=6510770",
+  "micro": "https://www.microcenter.com/product/674523/amd-ryzen-7-5700x-vermeer-34ghz-8-core-am4-boxed-processor-heatsink-not-included",
+  "ebay": "https://www.ebay.com/p/19053331362"
+ },
+ "7600": {
+  "newegg": "https://www.newegg.com/amd-ryzen-5-7600/p/N82E16819113787",
+  "amazon": "https://www.amazon.com/dp/B0BMQJWBDM",
+  "bestbuy": "https://www.bestbuy.com/site/amd-ryzen-5-7600-6-core-12-thread-4-0-ghz-5-2-ghz-max-boost-socket-am5-unlocked-desktop-processor-silver/6530445.p?skuId=6530445",
+  "micro": "https://www.microcenter.com/product/674517/amd-ryzen-5-7600-raphael-am5-38ghz-6-core-boxed-processor-wraith-stealth-cooler-included",
+  "ebay": "https://www.ebay.com/p/26059038147"
+ },
+ "7700": {
+  "newegg": "https://www.newegg.com/amd-ryzen-7-7700-ryzen-7-7000-series-raphael-zen-4-socket-am5/p/N82E16819113786",
+  "amazon": "https://www.amazon.com/dp/B0BMQHSCVF",
+  "bestbuy": "https://www.bestbuy.com/site/amd-ryzen-7-7700-8-core-16-thread-3-8-ghz-5-3-ghz-max-boost-socket-am5-unlocked-desktop-processor-silver/6530447.p?skuId=6530447",
+  "micro": "https://www.microcenter.com/product/674526/amd-ryzen-7-7700-raphael-am5-38ghz-8-core-boxed-processor-wraith-prism-cooler-included",
+  "ebay": "https://www.ebay.com/p/28059035410"
+ }
+};
+function linkFor(pid, sid){
+  const u = LINKS[pid]?.[sid];
+  const s = sellerById(sid), p = PRODUCTS.find(x=>x.id===pid);
+  return u ? {href:u, label:`View on ${s.name}`, direct:true} : {href:s.url(encodeURIComponent(p.q)), label:`Search ${s.name}`, direct:false};
+}
+const shipText = o => o.ship ? money(o.ship) : (o.seller.id==="micro" ? "$0 pickup" : "Free");
+const splitLine = o => `${money(o.price)} + ${o.ship?money(o.ship):"$0"} ship`;
+
+/* ---------- state ---------- */
+const store = {get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const state = {cat:store.get("ppb.cat","all"), used:store.get("ppb.used",true), ali:store.get("ppb.ali",false), seller:store.get("ppb.seller","ebay")};
+
+const $ = s => document.querySelector(s);
+const money = n => "$" + n.toLocaleString("en-US",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});
+const isNew = c => c.startsWith("New");
+const sellerById = id => SELLERS.find(s=>s.id===id);
+
+function offers(pid){
+  const out=[];
+  for(const s of SELLERS){
+    const r=PRICES[pid][s.id]; if(!r||r[0]==null) continue;
+    const [price,ship,cond,eta]=r;
+    if(!state.used && !isNew(cond)) continue;
+    if(!state.ali && s.id==="alibaba") continue;
+    out.push({seller:s,price,ship,cond,eta:eta||s.ship.eta,total:+(price+ship).toFixed(2)});
+  }
+  return out.sort((a,b)=>a.total-b.total);
+}
+function retailAvg(pid){
+  const v=["newegg","micro","amazon","bestbuy"].map(id=>PRICES[pid][id]).filter(r=>r&&r[0]!=null&&isNew(r[2])).map(r=>r[0]+r[1]);
+  return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
+}
+const best = pid => offers(pid)[0] || null;
+
+/* ---------- illustrations ---------- */
+function svgRam(p){
+  const ddr5 = p.cat==="ddr5", notch = ddr5 ? 150 : 128; // DDR5 notch sits near center, DDR4 off-center
+  const stick = (dx,dy)=>`<g transform="translate(${dx},${dy})">
+    <rect x="10" y="20" width="280" height="70" rx="3" fill="#1f6b46"/>
+    <rect x="10" y="10" width="280" height="62" rx="4" fill="${p.color}"/>
+    <path d="M10 46 L120 46 L132 34 L290 34" stroke="rgba(255,255,255,.18)" stroke-width="3" fill="none"/>
+    <text x="24" y="62" font-family="Chakra Petch,Arial" font-weight="700" font-size="13" fill="rgba(255,255,255,.85)">${ddr5?"DDR5":"DDR4"} · 16GB</text>
+    ${Array.from({length:46},(_,i)=>{const x=16+i*5.9;return Math.abs(x-notch)<5?"":`<rect x="${x}" y="80" width="3.6" height="10" fill="#d4a63a"/>`}).join("")}
+    <rect x="${notch-3}" y="80" width="6" height="11" fill="var(--tile)"/></g>`;
+  return `<svg viewBox="0 0 320 130" role="img" aria-label="${p.name} illustration">${stick(18,0)}${stick(0,30)}</svg>`;
+}
+function svgGpu(p){
+  const n=p.fans||2, w=300, fw=(w-40)/n;
+  const fans=Array.from({length:n},(_,i)=>{const cx=30+fw*i+fw/2, r=Math.min(fw/2-6,36);
+    const blades=Array.from({length:9},(_,b)=>`<path d="M${cx} ${62} q ${r*.5} ${-r*.2} ${r*.85} ${-r*.05}" stroke="#6b7280" stroke-width="5" fill="none" stroke-linecap="round" transform="rotate(${b*40} ${cx} 62)"/>`).join("");
+    return `<circle cx="${cx}" cy="62" r="${r}" fill="#111317"/>${blades}<circle cx="${cx}" cy="62" r="${r*.28}" fill="#2d3139"/>`}).join("");
+  return `<svg viewBox="0 0 330 130" role="img" aria-label="${p.name} illustration">
+    <rect x="4" y="14" width="10" height="100" rx="2" fill="#9aa1ad"/>
+    <rect x="14" y="16" width="${w}" height="94" rx="10" fill="${p.color}"/>
+    <rect x="14" y="16" width="${w}" height="8" rx="4" fill="rgba(255,255,255,.08)"/>
+    ${fans}
+    <rect x="70" y="110" width="150" height="10" fill="#1f6b46"/>
+    ${Array.from({length:30},(_,i)=>`<rect x="${74+i*4.8}" y="111" width="2.6" height="8" fill="#d4a63a"/>`).join("")}
+    <text x="${14+w-12}" y="104" text-anchor="end" font-family="Chakra Petch,Arial" font-weight="700" font-size="11" fill="#9aa1ad">${p.name.replace("GeForce ","").replace(/ \d+GB/,"")}</text></svg>`;
+}
+function svgCpu(p){
+  const am5=p.socket==="AM5", model=p.name.replace("AMD ","").toUpperCase();
+  const ihs = am5
+    ? `<path d="M100 18 h120 v14 h10 v-14 h0 v0 h0 M100 18" fill="none"/><path d="M98 16 H222 V40 H234 V90 H222 V114 H98 V90 H86 V40 H98 Z" fill="#c9ced6" stroke="#9aa1ad"/>`
+    : `<rect x="94" y="14" width="132" height="102" rx="6" fill="#c9ced6" stroke="#9aa1ad"/>`;
+  return `<svg viewBox="0 0 320 130" role="img" aria-label="${p.name} illustration">
+    <rect x="80" y="6" width="160" height="118" rx="5" fill="#1f6b46"/>
+    ${am5?Array.from({length:8},(_,i)=>`<rect x="${88+i*19}" y="10" width="6" height="3" fill="#d4a63a"/>`).join(""):""}
+    <path d="M80 118 l8 0 l-8 -8z" fill="#d4a63a"/>
+    ${ihs}
+    <text x="160" y="56" text-anchor="middle" font-family="Chakra Petch,Arial" font-weight="700" font-size="15" fill="#3a3f48">AMD RYZEN</text>
+    <text x="160" y="76" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#3a3f48">${model.replace("RYZEN ","")}</text>
+    <text x="160" y="94" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#5a6479">${p.socket} · ${p.specs["Cores / threads"].replace(" / ","C/")}T</text></svg>`;
+}
+const svgFor = p => p.cat==="gpu"?svgGpu(p):p.cat==="cpu"?svgCpu(p):svgRam(p);
+
+/* ---------- renderers ---------- */
+function renderChips(){
+  const opts=[{id:"all",name:"All parts"},...CATS];
+  $("#catChips").innerHTML=opts.map(o=>`<button class="chip" data-cat="${o.id}" aria-pressed="${state.cat===o.id}">${o.name}</button>`).join("");
+}
+const visibleCats = () => state.cat==="all"?CATS:CATS.filter(c=>c.id===state.cat);
+const condPill = c => `<span class="pill ${isNew(c)?"":"warn"}">${c}</span>`;
+
+function renderDeals(){
+  const ids=new Set(visibleCats().map(c=>c.id));
+  const all=[];
+  for(const p of PRODUCTS){ if(!ids.has(p.cat)) continue;
+    const avg=retailAvg(p.id); if(!avg) continue;
+    const o=best(p.id); if(!o) continue;
+    all.push({p,o,avg,save:avg-o.total,pct:(avg-o.total)/avg});
+  }
+  all.sort((a,b)=>b.pct-a.pct);
+  $("#deals").innerHTML = all.slice(0,3).map((d,i)=>{const sh=d.o.seller.ship; return `
+    <article class="deal">
+      <span class="rank">#${i+1} · ${CATS.find(c=>c.id===d.p.cat).name}</span>
+      <div class="dimg">${svgFor(d.p)}</div>
+      <span class="nm">${d.p.name}</span>
+      <span class="tag">${money(d.o.total)}<small>with shipping</small></span>
+      <span class="muted" style="font:400 12.5px var(--mono)">${money(d.o.price)} without shipping</span>
+      <span class="save">${d.save>0?`${money(Math.round(d.save))} under avg retail (${Math.round(d.pct*100)}%)`:"At average retail"}</span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="pill acc">${d.o.seller.name}</span>${condPill(d.o.cond)}</span>
+      <div class="shipbox">
+        <div class="row"><span class="muted">Price without shipping</span><span class="num">${money(d.o.price)}</span></div>
+        <div class="row"><span class="muted">Shipping</span><span class="num">${shipText(d.o)}</span></div>
+        <div class="row tot"><span>Price with shipping</span><span class="num">${money(d.o.total)}</span></div>
+        <div class="row" style="align-items:center"><span class="muted">Arrives in</span><span class="pill acc" style="font-size:12px;text-transform:none">${d.o.eta}</span></div>${liveNote(d.p.id,d.o.seller.id)}
+        <dl><dt>How</dt><dd>${sh.method}</dd><dt>Shipping policy</dt><dd>${sh.free}</dd><dt>Returns</dt><dd>${sh.returns}</dd></dl>
+      </div>
+      ${(()=>{const l=linkFor(d.p.id,d.o.seller.id);return `<a href="${l.href}" target="_blank" rel="noopener">${l.label} ↗</a>`})()}
+    </article>`}).join("") || `<p class="muted">No offers match these filters.</p>`;
+
+  // platform totals: CPU + cheapest compatible RAM
+  const cheapestIn = cat => PRODUCTS.filter(p=>p.cat===cat).map(p=>({p,o:best(p.id)})).filter(x=>x.o).sort((a,b)=>a.o.total-b.o.total)[0];
+  const r4=cheapestIn("ddr4"), r5=cheapestIn("ddr5"), g=PRODUCTS.filter(p=>p.cat==="gpu").map(p=>({p,o:best(p.id)})).filter(x=>x.o).sort((a,b)=>(b.p.perf/b.o.total)-(a.p.perf/a.o.total))[0];
+  const combo=(title,cpuId,ram,note)=>{const c=PRODUCTS.find(p=>p.id===cpuId), co=best(cpuId); if(!co||!ram) return "";
+    const rows=[[c.name,co],[ram.p.name,ram.o]]; if(g) rows.push([g.p.name+" (best-value GPU)",g.o]);
+    const tot=rows.reduce((a,[,o])=>a+o.total,0);
+    return `<div class="combo"><h3>${title}</h3><span class="muted" style="font-size:13px">${note}</span>
+      ${rows.map(([n,o])=>`<div class="row"><span>${n} <span class="muted">· ${o.seller.name}</span></span><span class="num">${money(o.total)}</span></div>`).join("")}
+      <div class="row tot"><span>Total before motherboard</span><span class="num">${money(+tot.toFixed(2))}</span></div></div>`};
+  $("#combos").innerHTML = state.cat==="all" ? [
+    combo("AM4 budget build","5700x",r4,"5700X needs DDR4 and a B550/B450 board (about $90–130)."),
+    combo("AM5 value build","7600",r5,"7600 needs DDR5 and a B650 board (about $120–160). Upgrade path to future Ryzen chips."),
+    combo("AM5 8-core build","7700",r5,"Same platform as the 7600, with two more cores for streaming and rendering."),
+  ].join("") : "";
+}
+
+function strip(pid){
+  const os=offers(pid); if(!os.length) return "";
+  const lo=os[0].total, hi=os[os.length-1].total, span=Math.max(hi-lo,1);
+  const pos=o=> os.length===1?50:((o.total-lo)/span)*100;
+  // stagger labels for dots that sit close together
+  let last=-99, flip=false;
+  const dots=os.map(o=>{const x=pos(o); flip = (x-last<9)?!flip:false; last=x;
+    return `<span class="dot ${o.total===lo?"lo":""}" style="left:${x}%" title="${o.seller.name}: ${money(o.total)}"></span><span class="lbl" style="left:${x}%;top:${flip?-12:19}px">${o.seller.short}</span>`}).join("");
+  return `<div><div class="strip"><span class="track"></span>${dots}</div><div class="strip-cap"><span>${money(lo)}</span><span>${money(hi)}</span></div></div>`;
+}
+
+function renderCats(){
+  $("#cats").innerHTML = visibleCats().map(c=>{
+    const ps=PRODUCTS.filter(p=>p.cat===c.id).map(p=>({p,o:best(p.id)}));
+    const priced=ps.filter(x=>x.o);
+    const cheapest=priced.slice().sort((a,b)=>a.o.total-b.o.total)[0];
+    const value=priced.map(x=>({...x,v:x.p.perf/x.o.total*100})).sort((a,b)=>b.v-a.v);
+    const vmax=value[0]?.v||1, vBest=value[0];
+    const label = c.cat==="cpu"?"Gaming index":c.id==="gpu"?"1080p index":"Latency index";
+    return `<div class="cat">
+      <div class="cat-head"><h3 style="font-size:20px">${c.name}</h3><span class="muted">${c.sub}</span></div>
+      <div class="cards">${ps.map(({p,o})=>{
+        const isVal=vBest&&vBest.p.id===p.id, isCheap=cheapest&&cheapest.p.id===p.id;
+        const v=o?p.perf/o.total*100:0;
+        return `<article class="card ${isVal?"win":""}">
+          <div class="img">${svgFor(p)}<div class="badges">${isVal?'<span class="pill acc">Best value</span>':""}${isCheap?'<span class="pill deal">Cheapest</span>':""}</div></div>
+          <div class="cbody">
+            <h3>${p.name}</h3>${p.model?`<span class="muted" style="font-size:12.5px;margin-top:-8px">Linked model: ${p.model}</span>`:""}
+            <p class="info">${p.info}</p>
+            <dl class="specs">${Object.entries(p.specs).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;justify-content:space-between" class="score"><span>${c.id==="gpu"?"1080p index":c.id==="cpu"?"Gaming index":"Latency index"} ${p.perf}</span><span>${o?v.toFixed(1)+" pts / $100":"–"}</span></div>
+              <div class="meter"><i style="width:${o?(v/vmax*100).toFixed(0):0}%"></i></div>
+            </div>
+            ${strip(p.id)}
+            <div class="best-line">
+              ${o?`<span class="tag">${money(o.total)}<small>lowest, with shipping</small></span><span class="where">${money(o.price)} + ${shipText(o)} shipping<br>${o.seller.name} · ${o.cond}<br><a href="${linkFor(p.id,o.seller.id).href}" target="_blank" rel="noopener">${linkFor(p.id,o.seller.id).label} ↗</a></span>`:`<span class="muted">No offers match these filters</span>`}
+            </div>
+          </div></article>`}).join("")}</div></div>`}).join("");
+}
+
+function renderMatrix(){
+  const head=`<thead><tr><th>Part</th>${SELLERS.map(s=>`<th><button data-goto="${s.id}">${s.name}</button></th>`).join("")}<th>Spread</th></tr></thead>`;
+  const body=visibleCats().map(c=>`<tr class="grp"><td colspan="${SELLERS.length+2}">${c.name}</td></tr>`+
+    PRODUCTS.filter(p=>p.cat===c.id).map(p=>{
+      const os=offers(p.id), lo=os[0]?.total, hi=os[os.length-1]?.total;
+      const cells=SELLERS.map(s=>{const o=os.find(x=>x.seller.id===s.id);
+        if(!o){const raw=PRICES[p.id][s.id]; return `<td class="na">${raw?`<span class="c">${raw[0]==null?"out of stock":"filtered"}</span>`:"—"}</td>`}
+        const l=linkFor(p.id,s.id);return `<td class="${o.total===lo?"lo":""}"><a class="p num" href="${l.href}" target="_blank" rel="noopener" title="${l.label}">${money(o.total)}</a><span class="c">${splitLine(o)}</span><span class="c">${o.cond}</span></td>`}).join("");
+      return `<tr><td>${p.name}</td>${cells}<td class="num">${os.length>1?money(+(hi-lo).toFixed(2)):"—"}</td></tr>`}).join("")).join("");
+  $("#tbl").innerHTML=head+`<tbody>${body}</tbody>`;
+}
+
+function renderSellers(){
+  $("#tabs").innerHTML=SELLERS.map(s=>`<button class="tab" role="tab" id="tab-${s.id}" data-seller="${s.id}" aria-selected="${state.seller===s.id}" tabindex="${state.seller===s.id?0:-1}">${s.name}</button>`).join("");
+  const s=sellerById(state.seller);
+  const riskCls={Low:"deal",Medium:"warn",High:"warn"}[s.facts.Risk];
+  const groups=visibleCats().map(c=>{
+    const rows=PRODUCTS.filter(p=>p.cat===c.id).map(p=>{
+      const raw=PRICES[p.id][s.id]; if(!raw) return "";
+      if(raw[0]==null) return `<div class="lst"><div class="thumb">${svgFor(p)}</div><div class="meta"><span class="nm">${p.name}</span><span class="sub"><span class="pill warn">Out of stock</span>${liveNote(p.id,s.id)}</span></div><div class="pr"><a href="${linkFor(p.id,s.id).href}" target="_blank" rel="noopener">${linkFor(p.id,s.id).label} ↗</a></div></div>`;
+      const [price,ship,cond,eta]=raw, total=+(price+ship).toFixed(2);
+      const os=offers(p.id), lo=os[0]?.total;
+      const hidden=(!state.used&&!isNew(cond))||(!state.ali&&s.id==="alibaba");
+      const diff = lo!=null ? total-lo : 0;
+      const status = hidden ? `<span class="pill">Hidden by filters</span>` : diff<=0.005 ? `<span class="pill deal">Lowest anywhere</span>` : `<span class="pill">+${money(+diff.toFixed(2))} vs lowest</span>`;
+      return `<div class="lst">
+        <div class="thumb">${svgFor(p)}</div>
+        <div class="meta"><span class="nm">${p.name}</span><span class="sub">${condPill(cond)}${status}<span>Arrives ${(eta||s.ship.eta).toLowerCase()}</span>${liveNote(p.id,s.id)}</span></div>
+        <div class="pr"><span class="tag">${money(total)}</span><span class="muted" style="font:400 11.5px var(--mono)">${money(price)} + ${ship?money(ship):"$0"} ship</span><a href="${linkFor(p.id,s.id).href}" target="_blank" rel="noopener">${linkFor(p.id,s.id).label} ↗</a></div></div>`}).join("");
+    return rows?`<div class="lst-grp">${c.name}</div>${rows}`:`<div class="lst-grp">${c.name}</div><p class="muted" style="margin:0">${s.name} doesn't carry these right now.</p>`}).join("");
+  $("#sellerPanel").setAttribute("aria-labelledby","tab-"+s.id);
+  $("#sellerPanel").innerHTML=`
+    <div class="seller-top">
+      <div style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:22px">${s.name}</h3><p>${s.blurb}</p>
+        ${s.id==="alibaba"&&!state.ali?`<p class="muted" style="font-size:13px">Alibaba prices are left out of the comparisons above. Turn on “Include Alibaba” to count them.</p>`:""}</div>
+      <dl class="facts">${Object.entries(s.facts).map(([k,v])=>`<dt>${k}</dt><dd>${k==="Risk"?`<span class="pill ${riskCls}">${v}</span>`:v}</dd>`).join("")}</dl>
+    </div>
+    <div class="listings">${groups}</div>`;
+}
+
+/* ---------- live refresh (desktop app browser + Claude, owner only) ---------- */
+let CHECKED = {};   // {pid:{sid:{at, ok}}}
+let UPDATED = "2026-10-05T12:00:00Z";
+const BROWSER = "host:claude_browser";
+const fmtDate = iso => new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
+function liveNote(pid,sid){const c=CHECKED[pid]?.[sid]; return c?.ok?`<span class="live">Checked live ${fmtDate(c.at)}</span>`:""}
+function setStamp(){ $("#stamp").textContent = Object.keys(CHECKED).length ? "Live prices updated "+fmtDate(UPDATED) : "Prices as of Oct 5, 2026"; }
+
+function applyData(d){
+  if(!d||!d.prices) return;
+  for(const pid in d.prices) if(PRICES[pid]) PRICES[pid]=d.prices[pid];
+  CHECKED=d.checked||{}; UPDATED=d.updatedAt||UPDATED;
+}
+fetch("prices.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{ if(d){applyData(d); setStamp(); renderAll();} }).catch(()=>{});
+
+let mcp=null, sample=null, artifactNs=null, abortCtl=null;
+const log=(t,cls="")=>{const el=document.createElement("span"); if(cls) el.className=cls; el.textContent=t; $("#refreshLog").prepend(el)};
+const textOf = r => { const pl=r?.payload; if(typeof pl==="string") return pl; const blocks=(r?.content||[]).filter(b=>b.type==="text").map(b=>b.text); return blocks.length?blocks.join("\n"):JSON.stringify(pl??""); };
+const browserErr = e => ({server_not_connected:"Claude's browser isn't available here. Open this page in a Cowork session in the Claude desktop app.",
+  not_in_manifest:"Browser access was declined for this page.", cancelled:"Skipped: the site visit was declined.",
+  needs_reauth:"Reconnect the browser in the Claude desktop app."})[e?.code] || (e?.message||"Browser error");
+
+async function readPage(url, signal){
+  await mcp.callTool(BROWSER,"navigate",{url},{cache:false,signal});
+  const r = await mcp.callTool(BROWSER,"get_page_text",{},{cache:false,signal});
+  return textOf(r).replace(/\s+/g," ").slice(0,9000);
+}
+
+async function extract(p, pages, signal){
+  const body = pages.map(x=>`### STORE: ${x.sid}\n${x.text}`).join("\n\n");
+  const prompt = `You are reading product pages from US stores for exactly this product: "${p.model||p.name}".
+For each STORE section below, find the current price of THAT product (ignore ads, bundles, other sizes or models).
+Reply with only JSON shaped like {"newegg":{"price":219.99,"shipping":0,"condition":"New","inStock":true,"eta":"Arrives Oct 9–11"}}.
+Rules: price and shipping are numbers in USD (shipping 0 if free or pickup; null if not shown). condition is one of New, Used, Refurb, Open-box, Renewed.
+For eBay, use the lowest Buy It Now listing and its shipping and condition. inStock false (price null) if the page says out of stock, sold out or unavailable.
+eta is the delivery or pickup estimate shown on the page, or null. Include every store key below.
+
+${body}`;
+  return sample.json(prompt,{modelTier:"quick",signal,cache:false});
+}
+
+async function runRefresh(){
+  const cats=new Set(visibleCats().map(c=>c.id));
+  const jobs=PRODUCTS.filter(p=>cats.has(p.cat)).map(p=>({p,stores:SELLERS.filter(s=>LINKS[p.id]?.[s.id]&&PRICES[p.id][s.id]!==undefined).map(s=>s.id)})).filter(j=>j.stores.length);
+  const totalPages=jobs.reduce((a,j)=>a+j.stores.length,0);
+  abortCtl=new AbortController(); const signal=abortCtl.signal;
+  $("#refreshPanel").hidden=false; $("#refreshLog").innerHTML=""; $("#refreshBtn").disabled=true; $("#stopBtn").hidden=false;
+  let done=0, updated=0, fatal=null;
+  const now=new Date().toISOString();
+  for(const j of jobs){
+    if(signal.aborted||fatal) break;
+    const pages=[];
+    for(const sid of j.stores){
+      if(signal.aborted||fatal) break;
+      $("#refreshMsg").textContent=`Reading ${sellerById(sid).name}: ${j.p.name} (${done+1} of ${totalPages})`;
+      try{ pages.push({sid,text:await readPage(LINKS[j.p.id][sid],signal)}); }
+      catch(e){ if(e?.code==="cancelled"&&signal.aborted) break;
+        log(`${j.p.name} @ ${sellerById(sid).name}: ${browserErr(e)}`,"bad");
+        if(["server_not_connected","not_in_manifest","needs_reauth","not_granted","capability_disabled"].includes(e?.code)) fatal=browserErr(e); }
+      done++; $("#refreshBar").style.width=(done/totalPages*100).toFixed(0)+"%";
+    }
+    if(!pages.length||signal.aborted||fatal) continue;
+    $("#refreshMsg").textContent=`Asking Claude to read prices for ${j.p.name}…`;
+    try{
+      const out=await extract(j.p,pages,signal);
+      for(const {sid} of pages){
+        const r=out?.[sid]; if(!r) { log(`${j.p.name} @ ${sellerById(sid).name}: no price found, kept the old one`,"bad"); continue; }
+        const old=PRICES[j.p.id][sid]||[null,0,"New"];
+        const price = (r.inStock===false||r.price==null) ? null : Number(r.price);
+        if(price!=null && !(price>0)) { log(`${j.p.name} @ ${sellerById(sid).name}: unreadable price, kept the old one`,"bad"); continue; }
+        const ship = r.shipping==null ? (old[1]||0) : Number(r.shipping)||0;
+        const cond = ["New","Used","Refurb","Open-box","Renewed"].includes(r.condition) ? r.condition : (old[2]||"New");
+        PRICES[j.p.id][sid]=[price,ship,cond,r.eta?String(r.eta).slice(0,60):null];
+        (CHECKED[j.p.id] ||= {})[sid]={at:now,ok:true}; updated++;
+        log(`${j.p.name} @ ${sellerById(sid).name}: ${price==null?"out of stock":money(price)+" + "+money(ship)+" ship"}`,"ok");
+      }
+      renderAll();
+    }catch(e){
+      if(e?.code==="cancelled") break;
+      const m={not_granted:"Claude access was declined, so prices can't be read.",rate_limited:"You've hit your Claude usage limit. Try again later.",sampling_disabled:"Claude isn't available on this account.",invalid_json:"Claude's answer couldn't be read for this part."}[e?.code]||e?.message||"Claude error";
+      log(`${j.p.name}: ${m}`,"bad");
+      if(["not_granted","rate_limited","sampling_disabled","not_declared","capability_disabled"].includes(e?.code)) fatal=m;
+    }
+  }
+  $("#stopBtn").hidden=true; $("#refreshBtn").disabled=false;
+  if(!updated){ $("#refreshMsg").textContent = fatal || (signal.aborted?"Stopped. Nothing changed.":"No prices could be read. Nothing changed."); return; }
+  UPDATED=now; setStamp(); renderAll();
+  $("#refreshMsg").textContent=`Updated ${updated} prices${signal.aborted?" before you stopped":""}${fatal?` (stopped early: ${fatal})`:""}. Saving…`;
+  await saveData();
+}
+
+async function saveData(){
+  if(!artifactNs){ $("#refreshMsg").textContent+=" Saving isn't available here, so the new prices show only on this screen."; return; }
+  const data={updatedAt:UPDATED,prices:PRICES,checked:CHECKED};
+  try{ await artifactNs.publish({"prices.json":{content:JSON.stringify(data),contentType:"application/json"}});
+    $("#refreshMsg").textContent=$("#refreshMsg").textContent.replace("Saving…","Saved for everyone who opens this page.");
+  }catch(e){
+    const m={not_writer:"You can view this page but not save to it, so the new prices show only on this screen.",not_granted:"Saving isn't allowed in this view, so the new prices show only on this screen.",capability_disabled:"Saving isn't available here, so the new prices show only on this screen.",conflict:"Someone saved a newer version first; the page is reloading to it.",rate_limited:"Saved too often. Wait a minute and refresh again."}[e?.code]||"Couldn't save the new prices. They still show on this screen.";
+    $("#refreshMsg").textContent=$("#refreshMsg").textContent.replace("Saving…",m);
+  }
+}
+
+(async()=>{
+  try{ [mcp,sample,artifactNs]=await Promise.all([claude.use("mcp"),claude.use("sample"),claude.use("artifact")]); }catch(e){ return; }
+  if(!mcp||!sample) return;                  // not in the desktop app, or Claude unavailable: page stays as-is
+  $("#refreshBtn").hidden=false;
+})();
+$("#refreshBtn").addEventListener("click",runRefresh);
+$("#stopBtn").addEventListener("click",()=>abortCtl?.abort());
+
+function renderAll(){ renderChips(); renderDeals(); renderCats(); renderMatrix(); renderSellers(); }
+
+/* ---------- events ---------- */
+$("#optUsed").checked=state.used; $("#optAli").checked=state.ali;
+$("#optUsed").addEventListener("change",e=>{state.used=e.target.checked;store.set("ppb.used",state.used);renderAll()});
+$("#optAli").addEventListener("change",e=>{state.ali=e.target.checked;store.set("ppb.ali",state.ali);renderAll()});
+$("#catChips").addEventListener("click",e=>{const b=e.target.closest("[data-cat]");if(!b)return;state.cat=b.dataset.cat;store.set("ppb.cat",state.cat);renderAll()});
+function pickSeller(id,focus){state.seller=id;store.set("ppb.seller",id);renderSellers();if(focus)$("#tab-"+id).focus()}
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest("[data-seller]");if(b)pickSeller(b.dataset.seller)});
+$("#tabs").addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight"].includes(e.key))return;const i=SELLERS.findIndex(s=>s.id===state.seller);const n=(i+(e.key==="ArrowRight"?1:-1)+SELLERS.length)%SELLERS.length;pickSeller(SELLERS[n].id,true)});
+$("#tbl").addEventListener("click",e=>{const b=e.target.closest("[data-goto]");if(!b)return;pickSeller(b.dataset.goto);$("#sellers").scrollIntoView({behavior:"smooth"})});
+
+renderAll();
+</script>
+
+</body></html>
